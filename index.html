@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Melhor Dinheiro - Sistema Corporativo</title>
+    
+    <!-- Ícone Personalizado (Favicon e Atalho do Telemóvel) via Nuvem -->
+    <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/16n-0NG87zQUYCwDMKqTBBqGA5eppmtWo=s1000">
+    <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/16n-0NG87zQUYCwDMKqTBBqGA5eppmtWo=s1000">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    
+    <!-- Bibliotecas para Exportação (Excel e PDF) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- Firebase SDKs compatíveis -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
+</head>
+<body class="bg-gray-100 font-sans p-4 md:p-8">
+
+    <!-- Mensagem de Alerta/Status de Conexão -->
+    <div id="statusAlert" class="max-w-6xl mx-auto mb-4 p-4 rounded-xl text-sm font-bold hidden"></div>
+
+    <!-- Tela de Login -->
+    <div id="loginScreen" class="max-w-md mx-auto bg-white p-6 rounded-xl shadow-md mt-10">
+        <div class="text-center mb-6">
+            <img src="https://lh3.googleusercontent.com/d/16n-0NG87zQUYCwDMKqTBBqGA5eppmtWo=s1000" alt="Logotipo" class="w-20 h-20 mx-auto rounded-2xl shadow-md mb-3 object-cover">
+            <h2 class="text-2xl font-bold text-gray-800">Acesso ao Sistema</h2>
+        </div>
+        <form id="loginForm" class="space-y-4">
+            <input type="email" id="email" placeholder="E-mail" class="w-full border p-2 rounded" required>
+            <input type="password" id="password" placeholder="Senha" class="w-full border p-2 rounded" required>
+            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Entrar</button>
+        </form>
+    </div>
+
+    <!-- Tela Principal do App -->
+    <div id="appScreen" class="max-w-6xl mx-auto space-y-6 hidden">
+        
+        <!-- Topo: Logotipo + Usuário Logado + Botão Push + Sair -->
+        <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow gap-4">
+            <div class="flex items-center gap-3">
+                <img src="https://lh3.googleusercontent.com/d/16n-0NG87zQUYCwDMKqTBBqGA5eppmtWo=s1000" alt="Logo" class="w-10 h-10 rounded-lg object-cover shadow">
+                <div>
+                    <span id="userEmail" class="text-sm text-gray-600 font-semibold block"></span>
+                    <span id="userRoleBadge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase inline-block mt-0.5"></span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button id="enablePushBtn" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition">🔔 Ativar Notificações Push</button>
+                <div id="roleSimulatorContainer" class="flex items-center gap-1 bg-gray-100 p-1 rounded border hidden">
+                    <span class="text-xs text-gray-500 font-semibold pl-1">Ver como:</span>
+                    <select id="roleSimulatorSelect" class="text-xs border-0 bg-transparent font-bold text-gray-700 focus:ring-0 cursor-pointer">
+                        <option value="admin">Administrador (Empresário)</option>
+                        <option value="operador">Operador (Funcionário)</option>
+                    </select>
+                </div>
+                <button id="logoutBtn" class="text-red-500 font-bold hover:underline text-xs">Sair</button>
+            </div>
+        </div>
+
+        <!-- Seleção do Perfil e Consulta Rápida por Lupa (Código ID) -->
+        <div class="bg-white p-4 rounded-xl shadow grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            <div class="flex items-center justify-between md:justify-start gap-4">
+                <label for="profileSelect" class="font-bold text-gray-700 whitespace-nowrap">Perfil Ativo:</label>
+                <select id="profileSelect" class="border rounded-lg p-2 bg-gray-50 font-semibold text-blue-600 w-full">
+                    <option value="pessoal">1 - Finanças Pessoais</option>
+                    <option value="sapalove">2 - Finanças Empresa SAPALOVE</option>
+                    <option value="ownership">3 - Finanças Empresa Essência OWNERSHIP</option>
+                </select>
+            </div>
+
+            <!-- Consulta por Lupa / Código ID -->
+            <div class="flex items-center gap-2">
+                <div class="relative w-full">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">🔍</span>
+                    <input type="text" id="searchIdInput" placeholder="Consultar por Código ID (Ex: 4F82A1)..." class="w-full border p-2 pl-9 rounded-lg text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <button id="searchIdBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 whitespace-nowrap">Buscar Recibo</button>
+            </div>
+        </div>
+
+        <!-- Painel de Alerta de Contas a Vencer / Vencidas -->
+        <div id="dueDateAlertPanel" class="bg-gradient-to-r from-red-50 to-amber-50 border-2 border-amber-300 p-5 rounded-xl shadow-md space-y-3 hidden">
+            <div class="flex items-center justify-between border-b border-amber-200 pb-2">
+                <h3 class="text-md font-bold text-amber-900 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-red-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Avisos Importantes: Contas Pendentes (Vencidas ou Vencendo Hoje)
+                </h3>
+                <span id="dueDateAlertCount" class="bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full">0 Alertas</span>
+            </div>
+            <div id="dueDateAlertList" class="space-y-2 text-sm text-gray-700 max-h-40 overflow-y-auto"></div>
+        </div>
+
+        <!-- Painel de Aprovações -->
+        <div id="adminApprovalPanel" class="bg-amber-50 border-2 border-amber-300 p-6 rounded-xl shadow-md space-y-4">
+            <div class="flex items-center justify-between border-b border-amber-200 pb-3">
+                <h2 class="text-lg font-bold text-amber-900 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    Aprovações Pendentes (Ajustes de Valor Solicitados por Funcionários)
+                </h2>
+                <span id="pendingCountBadge" class="bg-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full">0 Pendentes</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="text-amber-950 border-b border-amber-300 text-xs uppercase bg-amber-100/60">
+                            <th class="p-2">Data</th>
+                            <th class="p-2">Descrição</th>
+                            <th class="p-2">Solicitante</th>
+                            <th class="p-2 text-right">Valor Atual</th>
+                            <th class="p-2 text-right">Novo Valor Proposto</th>
+                            <th class="p-2 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pendingApprovalList" class="divide-y divide-amber-200 text-amber-900"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Formulário de Lançamento -->
+        <div class="bg-white p-6 rounded-xl shadow space-y-4">
+            <h2 class="text-xl font-bold text-gray-800">Novo Lançamento</h2>
+            <form id="financeForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <select id="type" class="border p-2 rounded" required>
+                    <option value="entrada">Entrada</option>
+                    <option value="saida">Saída</option>
+                </select>
+                <input type="number" step="0.01" id="amount" placeholder="Valor da Parcela (R$)" class="border p-2 rounded" required>
+                <input type="date" id="date" class="border p-2 rounded" required>
+                <input type="text" id="origin" placeholder="Origem (Ex: Itaú, Nubank, Dinheiro)" class="border p-2 rounded" required>
+                
+                <input type="text" id="description" placeholder="Descrição (Ex: Conta de Luz)" class="border p-2 rounded md:col-span-2" required>
+                <input type="text" id="category" placeholder="Categoria" class="border p-2 rounded" required>
+                
+                <select id="status" class="border p-2 rounded">
+                    <option value="pago">Pago / Recebido</option>
+                    <option value="pendente">Pendente</option>
+                </select>
+                
+                <div class="flex items-center gap-2 md:col-span-2">
+                    <label for="installments" class="text-sm font-semibold text-gray-600 whitespace-nowrap">Qtd. Parcelas:</label>
+                    <input type="number" id="installments" min="1" max="60" value="1" class="border p-2 rounded w-full" required>
+                </div>
+
+                <button type="submit" class="md:col-span-2 bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700">Salvar Lançamento</button>
+            </form>
+        </div>
+
+        <!-- Tabela / Planilha de Fluxo de Caixa -->
+        <div id="printAreaTable" class="bg-white p-6 rounded-xl shadow space-y-4 overflow-x-auto">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b pb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">Fluxo de Caixa (Lançamentos)</h2>
+                    <div class="text-left mt-1">
+                        <span class="text-sm text-gray-500 font-semibold">Saldo do Período: </span>
+                        <span id="currentBalance" class="text-lg font-bold text-gray-800">R$ 0,00</span>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 bg-gray-50 p-2 rounded-lg border w-full lg:w-auto">
+                    <div class="flex items-center gap-1">
+                        <span class="text-xs font-bold text-gray-600">Período:</span>
+                        <input type="date" id="tableStartDate" class="border p-1 rounded text-xs">
+                        <span class="text-xs text-gray-400">até</span>
+                        <input type="date" id="tableEndDate" class="border p-1 rounded text-xs">
+                    </div>
+
+                    <button id="clearTableFilter" class="text-xs text-gray-600 bg-white border px-2 py-1 rounded hover:bg-gray-100 font-semibold ml-1">Ver Todos / Limpar Filtros</button>
+
+                    <div class="flex items-center gap-1 border-l pl-2">
+                        <button id="exportExcelBtn" title="Exportar para Excel" class="bg-emerald-600 text-white text-xs px-2 py-1 rounded font-semibold hover:bg-emerald-700">Excel</button>
+                        <button id="exportPdfTableBtn" title="Exportar Tabela para PDF" class="bg-red-600 text-white text-xs px-2 py-1 rounded font-semibold hover:bg-red-700">PDF</button>
+                        <button id="sendEmailTableBtn" title="Enviar por E-mail" class="bg-indigo-600 text-white text-xs px-2 py-1 rounded font-semibold hover:bg-indigo-700">E-mail</button>
+                    </div>
+                </div>
+            </div>
+
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
+                        <th class="p-2 min-w-[100px]">Código ID</th>
+                        <th class="p-2 min-w-[110px]">Data</th>
+                        <th class="p-2 min-w-[120px]">Origem</th>
+                        <th class="p-2 min-w-[150px]">Descrição</th>
+                        <th class="p-2 min-w-[120px]">Categoria</th>
+                        <th class="p-2 min-w-[100px]">Tipo</th>
+                        <th class="p-2 min-w-[110px]">Status</th>
+                        <th class="p-2 text-right min-w-[120px]">Valor</th>
+                        <th class="p-2 text-center print:hidden min-w-[140px]">Ações</th>
+                    </tr>
+                    <tr class="bg-gray-100/70 border-b text-xs print:hidden">
+                        <th class="p-1"><input type="text" id="colFilterId" placeholder="Filtrar ID..." class="w-full p-1 border rounded font-normal text-gray-700 focus:outline-blue-500"></th>
+                        <th class="p-1"><input type="text" id="colFilterDate" placeholder="Filtrar Data..." class="w-full p-1 border rounded font-normal text-gray-700 focus:outline-blue-500"></th>
+                        <th class="p-1"><input type="text" id="colFilterOrigin" placeholder="Filtrar Origem..." class="w-full p-1 border rounded font-normal text-gray-700 focus:outline-blue-500"></th>
+                        <th class="p-1"><input type="text" id="colFilterDesc" placeholder="Filtrar Descrição..." class="w-full p-1 border rounded font-normal text-gray-700 focus:outline-blue-500"></th>
+                        <th class="p-1"><input type="text" id="colFilterCat" placeholder="Filtrar Categoria..." class="w-full p-1 border rounded font-normal text-gray-700 focus:outline-blue-500"></th>
+                        <th class="p-1">
+                            <select id="colFilterType" class="w-full p-1 border rounded font-normal text-gray-700 focus:outline-blue-500">
+                                <option value="">Todos</option>
+                                <option value="entrada">Entrada</option>
+                                <option value="saida">Saída</option>
+                            </select>
+                        </th>
+                        <th class="p-1">
+                            <select id="colFilterStatus" class="w-full p-1 border rounded font-normal text-gray-700 focus:outline-blue-500">
+                                <option value="">Todos</option>
+                                <option value="pago">Pago / Recebido</option>
+                                <option value="pendente">Pendente</option>
+                            </select>
+                        </th>
+                        <th class="p-1"><input type="text" id="colFilterAmount" placeholder="Filtrar R$..." class="w-full p-1 border rounded font-normal text-gray-700 text-right focus:outline-blue-500"></th>
+                        <th class="p-1 text-center text-gray-400 font-normal">-</th>
+                    </tr>
+                </thead>
+                <tbody id="transactionList" class="divide-y divide-gray-100 text-sm text-gray-700"></tbody>
+            </table>
+        </div>
+
+        <!-- Painel de Relatório e Gráficos -->
+        <div id="printAreaCharts" class="bg-white p-6 rounded-xl shadow space-y-4">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <h2 class="text-xl font-bold text-gray-800">Relatórios & Gráficos</h2>
+                <div class="flex flex-wrap items-center gap-2 bg-gray-50 p-2 rounded-lg border w-full lg:w-auto">
+                    <span class="text-xs font-bold text-gray-600">Período Gráficos:</span>
+                    <input type="date" id="startDate" class="border p-1 rounded text-xs">
+                    <span class="text-xs text-gray-400">até</span>
+                    <input type="date" id="endDate" class="border p-1 rounded text-xs">
+                    <button id="applyFilterBtn" class="bg-blue-600 text-white text-xs px-2 py-1 rounded font-bold hover:bg-blue-700">Filtrar</button>
+                    <button id="clearFilterBtn" class="text-xs text-gray-500 hover:underline mr-2">Limpar</button>
+
+                    <div class="flex items-center gap-1 border-l pl-2">
+                        <button id="exportChartImgBtn" title="Baixar Gráficos como Imagem" class="bg-purple-600 text-white text-xs px-2 py-1 rounded font-semibold hover:bg-purple-700">Imagem (PNG)</button>
+                        <button id="exportChartPdfBtn" title="Exportar Gráficos em PDF" class="bg-red-600 text-white text-xs px-2 py-1 rounded font-semibold hover:bg-red-700">PDF</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                <div class="bg-white p-2 rounded border">
+                    <h3 class="text-sm font-bold text-center text-gray-600 mb-2">Entradas vs Saídas</h3>
+                    <canvas id="barChart" height="170"></canvas>
+                </div>
+                <div class="bg-white p-2 rounded border">
+                    <h3 class="text-sm font-bold text-center text-gray-600 mb-2">Gastos por Categoria</h3>
+                    <canvas id="pieChart" height="170"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção de Lixeira -->
+        <div class="bg-white p-6 rounded-xl shadow space-y-4 overflow-x-auto">
+            <h2 class="text-xl font-bold text-red-600 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                Lixeira (Lançamentos Excluídos)
+            </h2>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b bg-red-50 text-red-700 text-xs uppercase tracking-wider">
+                        <th class="p-3">Data Exclusão</th>
+                        <th class="p-3">Origem</th>
+                        <th class="p-3">Descrição</th>
+                        <th class="p-3">Valor</th>
+                        <th class="p-3">Motivo da Exclusão</th>
+                    </tr>
+                </thead>
+                <tbody id="deletedList" class="divide-y divide-gray-100 text-sm text-gray-600"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal de Recibo -->
+    <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-6 relative border-t-8 border-blue-600">
+            <div class="flex justify-between items-center border-b pb-3">
+                <div class="flex items-center gap-2">
+                    <img src="https://lh3.googleusercontent.com/d/16n-0NG87zQUYCwDMKqTBBqGA5eppmtWo=s1000" class="w-8 h-8 rounded object-cover">
+                    <h3 class="text-lg font-bold text-gray-800">Comprovante / Recibo de Lançamento</h3>
+                </div>
+                <button onclick="document.getElementById('receiptModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+
+            <div id="receiptContent" class="space-y-4 text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border">
+                <!-- Conteúdo preenchido via JS -->
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="document.getElementById('receiptModal').classList.add('hidden')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-300">Fechar</button>
+                <button id="printReceiptBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700">Baixar / Imprimir PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modais de Ajuste e Exclusão -->
+    <div id="editAmountModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
+            <h3 class="text-lg font-bold text-gray-800">Ajustar Valor do Lançamento</h3>
+            <p id="editAmountText" class="text-sm text-gray-600"></p>
+            <div>
+                <label for="newAmountInput" class="block text-xs font-bold text-gray-600 mb-1">Novo Valor (R$):</label>
+                <input type="number" step="0.01" id="newAmountInput" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="0.00" required>
+            </div>
+            <div id="operatorWarning" class="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 hidden">
+                ⚠️ Seu perfil ativo é <strong>Operador (Funcionário)</strong>. Esta alteração será enviada para aprovação do Administrador.
+            </div>
+            <div class="flex justify-end gap-2">
+                <button id="cancelEditAmountBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded font-semibold text-sm hover:bg-gray-300">Cancelar</button>
+                <button id="confirmEditAmountBtn" class="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm hover:bg-blue-700">Salvar Ajuste</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
+            <h3 class="text-lg font-bold text-gray-800">Confirmar Exclusão</h3>
+            <p class="text-sm text-gray-600">Informe o motivo da exclusão deste lançamento:</p>
+            <textarea id="deleteReason" rows="3" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-red-500 outline-none" placeholder="Ex: Lançamento duplicado, valor digitado incorreto, etc." required></textarea>
+            <div class="flex justify-end gap-2">
+                <button id="cancelDeleteBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded font-semibold text-sm hover:bg-gray-300">Cancelar</button>
+                <button id="confirmDeleteBtn" class="px-4 py-2 bg-red-600 text-white rounded font-semibold text-sm hover:bg-red-700">Confirmar e Apagar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        Chart.register(ChartDataLabels);
+
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDtyXsq2nAwKEowOK3PQVT2IJa9YvLP0EE",
+            authDomain: "financas-empresa-familia.firebaseapp.com",
+            projectId: "financas-empresa-familia",
+            storageBucket: "financas-empresa-familia.firebasestorage.app",
+            messagingSenderId: "444969876298",
+            appId: "1:444969876298:web:696f03a1f845b80dfc9fb3"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const messaging = firebase.messaging();
+
+        // Perfis e Papéis
+        const USER_ROLES = {
+            "eduardonoberto8@gmail.com": "admin",
+            "eduardonoberto@gmail.com": "admin",
+            "suzanagoncalves23@gmail.com": "operador"
+        };
+
+        let currentUser = null;
+        let originalUserRole = "operador";
+        let simulatedUserRole = "operador";
+        let barChartInstance = null;
+        let pieChartInstance = null;
+        let activeProfile = "pessoal";
+        let allTransactions = [];
+        let deletedTransactions = [];
+        let pendingApprovals = [];
+
+        let currentEditDocId = null;
+        let currentDeleteDocId = null;
+
+        let unsubTransactions = null;
+        let unsubDeleted = null;
+        let unsubApprovals = null;
+
+        // Elementos DOM
+        const loginScreen = document.getElementById('loginScreen');
+        const appScreen = document.getElementById('appScreen');
+        const loginForm = document.getElementById('loginForm');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userEmailSpan = document.getElementById('userEmail');
+        const userRoleBadge = document.getElementById('userRoleBadge');
+        const roleSimulatorContainer = document.getElementById('roleSimulatorContainer');
+        const roleSimulatorSelect = document.getElementById('roleSimulatorSelect');
+        const profileSelect = document.getElementById('profileSelect');
+        const financeForm = document.getElementById('financeForm');
+        const transactionList = document.getElementById('transactionList');
+        const deletedList = document.getElementById('deletedList');
+        const currentBalance = document.getElementById('currentBalance');
+        const adminApprovalPanel = document.getElementById('adminApprovalPanel');
+        const pendingApprovalList = document.getElementById('pendingApprovalList');
+        const pendingCountBadge = document.getElementById('pendingCountBadge');
+        const statusAlert = document.getElementById('statusAlert');
+        const enablePushBtn = document.getElementById('enablePushBtn');
+
+        const dueDateAlertPanel = document.getElementById('dueDateAlertPanel');
+        const dueDateAlertCount = document.getElementById('dueDateAlertCount');
+        const dueDateAlertList = document.getElementById('dueDateAlertList');
+
+        const tableStartDate = document.getElementById('tableStartDate');
+        const tableEndDate = document.getElementById('tableEndDate');
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+
+        const searchIdInput = document.getElementById('searchIdInput');
+        const searchIdBtn = document.getElementById('searchIdBtn');
+        const receiptModal = document.getElementById('receiptModal');
+        const receiptContent = document.getElementById('receiptContent');
+
+        function setDefaultCurrentMonthDates() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const firstDay = `${year}-${month}-01`;
+            const lastDayObj = new Date(year, now.getMonth() + 1, 0);
+            const lastDayNum = String(lastDayObj.getDate()).padStart(2, '0');
+            const lastDay = `${year}-${month}-${lastDayNum}`;
+
+            tableStartDate.value = firstDay;
+            tableEndDate.value = lastDay;
+            startDate.value = firstDay;
+            endDate.value = lastDay;
+        }
+
+        setDefaultCurrentMonthDates();
+
+        function showStatus(msg, isError = false) {
+            statusAlert.textContent = msg;
+            statusAlert.className = `max-w-6xl mx-auto mb-4 p-4 rounded-xl text-sm font-bold ${isError ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-blue-100 text-blue-800 border border-blue-300'}`;
+            statusAlert.classList.remove('hidden');
+        }
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                userEmailSpan.textContent = user.email;
+                originalUserRole = USER_ROLES[user.email.toLowerCase()] || "operador";
+                simulatedUserRole = originalUserRole;
+
+                if (originalUserRole === 'admin') {
+                    roleSimulatorContainer.classList.remove('hidden');
+                    roleSimulatorSelect.value = 'admin';
+                } else {
+                    roleSimulatorContainer.classList.add('hidden');
+                }
+
+                updateRoleUI();
+                loginScreen.classList.add('hidden');
+                appScreen.classList.remove('hidden');
+
+                loadData();
+            } else {
+                currentUser = null;
+                loginScreen.classList.remove('hidden');
+                appScreen.classList.add('hidden');
+                statusAlert.classList.add('hidden');
+            }
+        });
+
+        loginForm.addEventListener('submit', e => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            auth.signInWithEmailAndPassword(email, password).catch(err => alert("Erro no login: " + err.message));
+        });
+
+        logoutBtn.addEventListener('click', () => auth.signOut());
+
+        enablePushBtn.addEventListener('click', async () => {
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    const registration = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+                    
+                    const token = await messaging.getToken({
+                        vapidKey: 'BHeRvwajRTEL-mufhB6q6M3YXfhTan0KauPUxWTNI6ISNiwF5tA-sdDYNT2kEPxIQcPzZRdjKLm763GaXxh_-y4',
+                        serviceWorkerRegistration: registration
+                    });
+
+                    if (token) {
+                        await db.collection("fcm_tokens").doc(currentUser.uid).set({
+                            token: token,
+                            email: currentUser.email,
+                            updatedAt: new Date().toISOString()
+                        }, { merge: true });
+
+                        alert("Notificações Push ativadas com sucesso neste dispositivo!");
+                        enablePushBtn.textContent = "🔔 Push Ativado";
+                        enablePushBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                        enablePushBtn.classList.add('bg-green-600');
+                    } else {
+                        alert("Não foi possível gerar o token de notificação.");
+                    }
+                } else {
+                    alert("Permissão de notificação negada pelo navegador.");
+                }
+            } catch (err) {
+                console.error("Erro ao ativar push:", err);
+                alert("Erro ao registrar notificações: " + err.message);
+            }
+        });
+
+        roleSimulatorSelect.addEventListener('change', e => {
+            simulatedUserRole = e.target.value;
+            updateRoleUI();
+            renderTransactions();
+            renderApprovals();
+        });
+
+        function updateRoleUI() {
+            if (simulatedUserRole === 'admin') {
+                userRoleBadge.textContent = "Admin";
+                userRoleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-100 text-purple-800 inline-block mt-0.5";
+                adminApprovalPanel.classList.remove('hidden');
+            } else {
+                userRoleBadge.textContent = "Operador";
+                userRoleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-800 inline-block mt-0.5";
+                adminApprovalPanel.classList.add('hidden');
+            }
+        }
+
+        profileSelect.addEventListener('change', e => {
+            activeProfile = e.target.value;
+            loadData();
+        });
+
+        function loadData() {
+            if (unsubTransactions) unsubTransactions();
+            if (unsubDeleted) unsubDeleted();
+            if (unsubApprovals) unsubApprovals();
+
+            showStatus("Conectando ao banco de dados e buscando lançamentos...");
+
+            unsubTransactions = db.collection("financas")
+                .where("profile", "==", activeProfile)
+                .onSnapshot(snapshot => {
+                    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    allTransactions = docs.filter(t => !t.deleted);
+                    deletedTransactions = docs.filter(t => t.deleted === true);
+                    
+                    statusAlert.classList.add('hidden');
+                    renderTransactions();
+                    renderDeleted();
+                    checkDueDatesAlerts();
+                }, err => {
+                    showStatus("Erro nas permissões do Firestore: " + err.message, true);
+                });
+
+            unsubApprovals = db.collection("financas").doc(activeProfile).collection("aprovacoes")
+                .onSnapshot(snapshot => {
+                    pendingApprovals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderApprovals();
+                }, () => {});
+        }
+
+        function checkDueDatesAlerts() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const alerts = allTransactions.filter(t => t.status === 'pendente' && t.date && t.date <= todayStr);
+
+            if (alerts.length > 0) {
+                dueDateAlertCount.textContent = `${alerts.length} Alerta(s)`;
+                dueDateAlertList.innerHTML = '';
+
+                alerts.forEach(t => {
+                    const isVencida = t.date < todayStr;
+                    const badgeColor = isVencida ? 'bg-red-100 text-red-800 border-red-300' : 'bg-amber-100 text-amber-800 border-amber-300';
+                    const badgeText = isVencida ? 'VENCIDA' : 'VENCE HOJE';
+                    const amountVal = parseFloat(t.amount) || 0;
+
+                    const div = document.createElement('div');
+                    div.className = `flex flex-col sm:flex-row justify-between items-start sm:items-center p-2.5 bg-white border rounded-lg shadow-sm gap-2`;
+                    
+                    // Regra: Se estiver vencida, não permite dar baixa direta aqui
+                    let actionHtml = '';
+                    if (isVencida) {
+                        actionHtml = `<span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">Vencida (Baixa Bloqueada)</span>`;
+                    } else {
+                        actionHtml = `<button onclick="quickMarkAsPaid('${t.id}')" class="bg-green-600 text-white text-xs px-2.5 py-1 rounded font-bold hover:bg-green-700">Dar Baixa (Pago)</button>`;
+                    }
+
+                    div.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 text-[10px] font-extrabold rounded border ${badgeColor}">${badgeText}</span>
+                            <span class="font-bold text-gray-800">${t.description || 'Sem descrição'}</span>
+                            <span class="text-xs text-gray-500">(Data: ${t.date})</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-red-600">R$ ${amountVal.toFixed(2)}</span>
+                            ${actionHtml}
+                        </div>
+                    `;
+                    dueDateAlertList.appendChild(div);
+                });
+
+                dueDateAlertPanel.classList.remove('hidden');
+            } else {
+                dueDateAlertPanel.classList.add('hidden');
+            }
+        }
+
+        window.quickMarkAsPaid = async function(docId) {
+            const target = allTransactions.find(t => t.id === docId);
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            if (target && target.date < todayStr) {
+                alert("Operação bloqueada! Este lançamento já venceu e não pode ter seu status alterado diretamente para pago por aqui.");
+                return;
+            }
+
+            if (confirm("Deseja marcar este lançamento como Pago/Recebido?")) {
+                await db.collection("financas").doc(docId).update({ status: 'pago' });
+            }
+        };
+
+        financeForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            const type = document.getElementById('type').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const dateStr = document.getElementById('date').value;
+            const origin = document.getElementById('origin').value;
+            const description = document.getElementById('description').value;
+            const category = document.getElementById('category').value;
+            const status = document.getElementById('status').value;
+            const installments = parseInt(document.getElementById('installments').value) || 1;
+
+            const baseDate = new Date(dateStr + 'T00:00:00');
+
+            for (let i = 0; i < installments; i++) {
+                const currentDate = new Date(baseDate);
+                currentDate.setMonth(currentDate.getMonth() + i);
+
+                const year = currentDate.getFullYear();
+                const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+                const day = String(currentDate.getDate()).padStart(2, '0');
+                const formattedDate = `${year}-${month}-${day}`;
+
+                const descWithInst = installments > 1 ? `${description} (${i + 1}/${installments})` : description;
+
+                await db.collection("financas").add({
+                    type,
+                    amount,
+                    date: formattedDate,
+                    origin,
+                    description: descWithInst,
+                    category,
+                    status,
+                    profile: activeProfile,
+                    deleted: false,
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser.email
+                });
+            }
+
+            financeForm.reset();
+            document.getElementById('installments').value = 1;
+        });
+
+        const colFilterId = document.getElementById('colFilterId');
+        const colFilterDate = document.getElementById('colFilterDate');
+        const colFilterOrigin = document.getElementById('colFilterOrigin');
+        const colFilterDesc = document.getElementById('colFilterDesc');
+        const colFilterCat = document.getElementById('colFilterCat');
+        const colFilterType = document.getElementById('colFilterType');
+        const colFilterStatus = document.getElementById('colFilterStatus');
+        const colFilterAmount = document.getElementById('colFilterAmount');
+
+        [colFilterId, colFilterDate, colFilterOrigin, colFilterDesc, colFilterCat, colFilterType, colFilterStatus, colFilterAmount, tableStartDate, tableEndDate].forEach(input => {
+            input.addEventListener('input', renderTransactions);
+        });
+
+        document.getElementById('clearTableFilter').addEventListener('click', () => {
+            colFilterId.value = '';
+            colFilterDate.value = '';
+            colFilterOrigin.value = '';
+            colFilterDesc.value = '';
+            colFilterCat.value = '';
+            colFilterType.value = '';
+            colFilterStatus.value = '';
+            colFilterAmount.value = '';
+            tableStartDate.value = '';
+            tableEndDate.value = '';
+            renderTransactions();
+        });
+
+        document.getElementById('applyFilterBtn').addEventListener('click', renderTransactions);
+        document.getElementById('clearFilterBtn').addEventListener('click', () => {
+            startDate.value = '';
+            endDate.value = '';
+            renderTransactions();
+        });
+
+        // Função para Abrir o Recibo de um Lançamento por ID
+        function openReceiptById(searchVal) {
+            const query = searchVal.trim().toLowerCase();
+            if (!query) {
+                alert("Digite o código ID ou parte dele para consultar.");
+                return;
+            }
+
+            const found = allTransactions.find(t => {
+                const fullId = t.id.toLowerCase();
+                const shortId = t.id.substring(0, 6).toLowerCase();
+                return fullId === query || shortId === query || fullId.includes(query);
+            });
+
+            if (!found) {
+                alert("Nenhum lançamento encontrado com este Código ID.");
+                return;
+            }
+
+            const amountVal = parseFloat(found.amount) || 0;
+            const todayStr = new Date().toISOString().split('T')[0];
+            const isVencida = found.status === 'pendente' && found.date && found.date < todayStr;
+
+            receiptContent.innerHTML = `
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-bold text-gray-500">ID do Lançamento:</span>
+                    <span class="font-mono font-bold text-blue-600">${found.id}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-bold text-gray-500">Perfil:</span>
+                    <span class="uppercase font-semibold text-gray-800">${found.profile}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-bold text-gray-500">Data de Vencimento:</span>
+                    <span class="font-semibold text-gray-800">${found.date}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-bold text-gray-500">Origem / Conta:</span>
+                    <span class="font-semibold text-gray-800">${found.origin || '-'}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-bold text-gray-500">Descrição:</span>
+                    <span class="font-semibold text-gray-800">${found.description || '-'}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-bold text-gray-500">Categoria:</span>
+                    <span class="font-semibold text-gray-800">${found.category || '-'}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-bold text-gray-500">Tipo:</span>
+                    <span class="font-semibold ${found.type === 'entrada' ? 'text-green-600' : 'text-red-600'} uppercase">${found.type}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="font-bold text-gray-500">Status Atual:</span>
+                    <span class="font-semibold uppercase ${found.status === 'pago' ? 'text-green-600' : (isVencida ? 'text-red-600' : 'text-amber-600')}">${found.status} ${isVencida ? '(VENCIDA)' : ''}</span>
+                </div>
+                <div class="flex justify-between pt-2">
+                    <span class="text-base font-bold text-gray-800">Valor Total:</span>
+                    <span class="text-lg font-extrabold ${found.type === 'entrada' ? 'text-green-600' : 'text-red-600'}">R$ ${amountVal.toFixed(2)}</span>
+                </div>
+            `;
+
+            receiptModal.classList.remove('hidden');
+        }
+
+        searchIdBtn.addEventListener('click', () => {
+            openReceiptById(searchIdInput.value);
+        });
+
+        searchIdInput.addEventListener('keypress', e => {
+            if (e.key === 'Enter') {
+                openReceiptById(searchIdInput.value);
+            }
+        });
+
+        document.getElementById('printReceiptBtn').addEventListener('click', () => {
+            html2pdf().from(receiptContent).save(`Comprovante_${searchIdInput.value || 'lancamento'}.pdf`);
+        });
+
+        function renderTransactions() {
+            transactionList.innerHTML = '';
+            let balance = 0;
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            const filtered = allTransactions.filter(t => {
+                const idCompleto = t.id || '';
+                const codigoAbreviado = idCompleto.substring(0, 6).toUpperCase();
+
+                const matchId = !colFilterId.value || idCompleto.toLowerCase().includes(colFilterId.value.toLowerCase()) || codigoAbreviado.toLowerCase().includes(colFilterId.value.toLowerCase());
+                const matchDate = !colFilterDate.value || (t.date && t.date.includes(colFilterDate.value));
+                const matchOrigin = !colFilterOrigin.value || (t.origin && t.origin.toLowerCase().includes(colFilterOrigin.value.toLowerCase()));
+                const matchDesc = !colFilterDesc.value || (t.description && t.description.toLowerCase().includes(colFilterDesc.value.toLowerCase()));
+                const matchCat = !colFilterCat.value || (t.category && t.category.toLowerCase().includes(colFilterCat.value.toLowerCase()));
+                const matchType = !colFilterType.value || t.type === colFilterType.value;
+                const matchStatus = !colFilterStatus.value || t.status === colFilterStatus.value;
+                const matchAmount = !colFilterAmount.value || (t.amount && t.amount.toString().includes(colFilterAmount.value));
+
+                const matchStart = !tableStartDate.value || t.date >= tableStartDate.value;
+                const matchEnd = !tableEndDate.value || t.date <= tableEndDate.value;
+
+                return matchId && matchDate && matchOrigin && matchDesc && matchCat && matchType && matchStatus && matchAmount && matchStart && matchEnd;
+            });
+
+            filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+            if (filtered.length === 0) {
+                transactionList.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-gray-500 font-semibold">Nenhum lançamento encontrado para o período selecionado.</td></tr>`;
+            } else {
+                filtered.forEach(t => {
+                    const amountVal = parseFloat(t.amount) || 0;
+                    if (t.type === 'entrada') balance += amountVal;
+                    else balance -= amountVal;
+
+                    const idCompleto = t.id;
+                    const codigoAbreviado = idCompleto.substring(0, 6).toUpperCase();
+                    const isVencida = t.status === 'pendente' && t.date && t.date < todayStr;
+
+                    // Formatação do status e verificação de vencimento
+                    let statusBadge = '';
+                    if (t.status === 'pago') {
+                        statusBadge = '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">Pago/Rec</span>';
+                    } else if (isVencida) {
+                        statusBadge = '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-bold border border-red-300" title="Conta Vencida: Mudança de status bloqueada">Vencida (Bloq.)</span>';
+                    } else {
+                        statusBadge = '<span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold">Pendente</span>';
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-gray-50";
+                    tr.innerHTML = `
+                        <td class="p-2"><span title="ID Completo: ${idCompleto}" class="cursor-pointer font-mono font-bold text-xs bg-gray-100 text-blue-700 px-2 py-1 rounded border">#${codigoAbreviado}</span></td>
+                        <td class="p-2">${t.date || '-'}</td>
+                        <td class="p-2">${t.origin || '-'}</td>
+                        <td class="p-2 font-semibold">${t.description || '-'}</td>
+                        <td class="p-2"><span class="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">${t.category || '-'}</span></td>
+                        <td class="p-2">${t.type === 'entrada' ? '<span class="text-green-600 font-bold">Entrada</span>' : '<span class="text-red-600 font-bold">Saída</span>'}</td>
+                        <td class="p-2">${statusBadge}</td>
+                        <td class="p-2 text-right font-bold ${t.type === 'entrada' ? 'text-green-600' : 'text-red-600'}">R$ ${amountVal.toFixed(2)}</td>
+                        <td class="p-2 text-center print:hidden flex justify-center gap-1">
+                            <button onclick="openReceiptById('${t.id}')" title="Ver Recibo" class="p-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 text-xs font-bold">🔍</button>
+                            <button onclick="openEditAmountModal('${t.id}', ${amountVal}, '${t.description || ''}')" title="Ajustar Valor" class="p-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-bold">✏️</button>
+                            <button onclick="openDeleteModal('${t.id}')" title="Excluir" class="p-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-bold">🗑️</button>
+                        </td>
+                    `;
+                    transactionList.appendChild(tr);
+                });
+            }
+
+            currentBalance.textContent = `R$ ${balance.toFixed(2)}`;
+            currentBalance.className = `text-lg font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`;
+
+            const chartFiltered = allTransactions.filter(t => {
+                const start = startDate.value || tableStartDate.value;
+                const end = endDate.value || tableEndDate.value;
+                const matchStart = !start || t.date >= start;
+                const matchEnd = !end || t.date <= end;
+                return matchStart && matchEnd;
+            });
+
+            updateCharts(chartFiltered);
+        }
+
+        function renderDeleted() {
+            deletedList.innerHTML = '';
+            deletedTransactions.forEach(t => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-3">${t.deletedAt ? t.deletedAt.split('T')[0] : '-'}</td>
+                    <td class="p-3">${t.origin || '-'}</td>
+                    <td class="p-3">${t.description || '-'}</td>
+                    <td class="p-3 font-bold text-red-600">R$ ${(parseFloat(t.amount)||0).toFixed(2)}</td>
+                    <td class="p-3 text-xs italic text-gray-500">${t.deleteReason || 'Sem justificativa'}</td>
+                `;
+                deletedList.appendChild(tr);
+            });
+        }
+
+        function renderApprovals() {
+            pendingApprovalList.innerHTML = '';
+            pendingCountBadge.textContent = `${pendingApprovals.length} Pendentes`;
+
+            pendingApprovals.forEach(app => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-2">${app.date}</td>
+                    <td class="p-2 font-semibold">${app.description}</td>
+                    <td class="p-2 text-xs">${app.requestedBy}</td>
+                    <td class="p-2 text-right font-bold text-gray-500">R$ ${(parseFloat(app.currentAmount)||0).toFixed(2)}</td>
+                    <td class="p-2 text-right font-bold text-blue-600">R$ ${(parseFloat(app.newAmount)||0).toFixed(2)}</td>
+                    <td class="p-2 text-center flex justify-center gap-1">
+                        <button onclick="approveAdjustment('${app.id}', '${app.targetDocId}', ${app.newAmount})" class="bg-green-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-green-700">Aprovar</button>
+                        <button onclick="rejectAdjustment('${app.id}')" class="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-red-700">Rejeitar</button>
+                    </td>
+                `;
+                pendingApprovalList.appendChild(tr);
+            });
+        }
+
+        const editAmountModal = document.getElementById('editAmountModal');
+        const editAmountText = document.getElementById('editAmountText');
+        const newAmountInput = document.getElementById('newAmountInput');
+        const operatorWarning = document.getElementById('operatorWarning');
+
+        window.openEditAmountModal = function(docId, currentAmount, desc) {
+            currentEditDocId = docId;
+            editAmountText.textContent = `Ajustando lançamento: "${desc}" (Valor Atual: R$ ${currentAmount.toFixed(2)})`;
+            newAmountInput.value = currentAmount;
+
+            if (simulatedUserRole === 'operador') {
+                operatorWarning.classList.remove('hidden');
+            } else {
+                operatorWarning.classList.add('hidden');
+            }
+
+            editAmountModal.classList.remove('hidden');
+        };
+
+        document.getElementById('cancelEditAmountBtn').addEventListener('click', () => editAmountModal.classList.add('hidden'));
+
+        document.getElementById('confirmEditAmountBtn').addEventListener('click', async () => {
+            const newVal = parseFloat(newAmountInput.value);
+            if (isNaN(newVal) || newVal <= 0) return alert("Digite um valor válido!");
+
+            const target = allTransactions.find(t => t.id === currentEditDocId);
+            if (!target) return;
+
+            if (simulatedUserRole === 'admin') {
+                await db.collection("financas").doc(currentEditDocId).update({ amount: newVal });
+                alert("Valor atualizado com sucesso!");
+            } else {
+                await db.collection("financas").doc(activeProfile).collection("aprovacoes").add({
+                    targetDocId: currentEditDocId,
+                    description: target.description,
+                    date: target.date,
+                    currentAmount: target.amount,
+                    newAmount: newVal,
+                    requestedBy: currentUser.email,
+                    requestedAt: new Date().toISOString()
+                });
+                alert("Solicitação enviada para aprovação do Administrador!");
+            }
+
+            editAmountModal.classList.add('hidden');
+        });
+
+        window.approveAdjustment = async function(approvalDocId, targetDocId, newAmount) {
+            await db.collection("financas").doc(targetDocId).update({ amount: newAmount });
+            await db.collection("financas").doc(activeProfile).collection("aprovacoes").doc(approvalDocId).delete();
+            alert("Ajuste APROVADO e atualizado!");
+        };
+
+        window.rejectAdjustment = async function(approvalDocId) {
+            await db.collection("financas").doc(activeProfile).collection("aprovacoes").doc(approvalDocId).delete();
+            alert("Solicitação REJEITADA!");
+        };
+
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteReason = document.getElementById('deleteReason');
+
+        window.openDeleteModal = function(docId) {
+            currentDeleteDocId = docId;
+            deleteReason.value = '';
+            deleteModal.classList.remove('hidden');
+        };
+
+        document.getElementById('cancelDeleteBtn').addEventListener('click', () => deleteModal.classList.add('hidden'));
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+            const reason = deleteReason.value.trim();
+            if (!reason) return alert("Por favor, informe o motivo da exclusão!");
+
+            const target = allTransactions.find(t => t.id === currentDeleteDocId);
+            if (target) {
+                await db.collection("financas").doc(currentDeleteDocId).update({
+                    deleted: true,
+                    deletedBy: currentUser.email,
+                    deletedAt: new Date().toISOString(),
+                    deleteReason: reason
+                });
+            }
+
+            deleteModal.classList.add('hidden');
+        });
+
+        function updateCharts(data) {
+            let totalEntradas = 0;
+            let totalSaidas = 0;
+            const categoryMap = {};
+
+            data.forEach(t => {
+                const amt = parseFloat(t.amount) || 0;
+                if (t.type === 'entrada') {
+                    totalEntradas += amt;
+                } else {
+                    totalSaidas += amt;
+                    const cat = t.category || 'Sem Categoria';
+                    categoryMap[cat] = (categoryMap[cat] || 0) + amt;
+                }
+            });
+
+            const ctxBar = document.getElementById('barChart').getContext('2d');
+            if (barChartInstance) barChartInstance.destroy();
+
+            barChartInstance = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: ['Entradas', 'Saídas'],
+                    datasets: [{
+                        data: [totalEntradas, totalSaidas],
+                        backgroundColor: ['#16a34a', '#dc2626']
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: { display: false },
+                        datalabels: {
+                            color: '#fff',
+                            font: { weight: 'bold' },
+                            formatter: (value) => 'R$ ' + value.toFixed(2)
+                        }
+                    }
+                }
+            });
+
+            const ctxPie = document.getElementById('pieChart').getContext('2d');
+            if (pieChartInstance) pieChartInstance.destroy();
+
+            const pieLabels = Object.keys(categoryMap);
+            const pieData = Object.values(categoryMap);
+
+            pieChartInstance = new Chart(ctxPie, {
+                type: 'pie',
+                data: {
+                    labels: pieLabels,
+                    datasets: [{
+                        data: pieData,
+                        backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#6366f1']
+                    }]
+                },
+                options: {
+                    plugins: {
+                        datalabels: {
+                            color: '#fff',
+                            font: { weight: 'bold' },
+                            formatter: (value) => 'R$ ' + value.exports?.toFixed ? value.toFixed(2) : 'R$ ' + value.toFixed(2)
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('exportExcelBtn').addEventListener('click', () => {
+            const dataToExport = allTransactions.map(t => ({
+                "Código ID": t.id,
+                Data: t.date,
+                Origem: t.origin,
+                Descrição: t.description,
+                Categoria: t.category,
+                Tipo: t.type,
+                Status: t.status,
+                Valor: t.amount
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dataToExport);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Fluxo de Caixa");
+            XLSX.writeFile(wb, `Fluxo_Caixa_${activeProfile}.xlsx`);
+        });
+
+        document.getElementById('exportPdfTableBtn').addEventListener('click', () => {
+            const element = document.getElementById('printAreaTable');
+            html2pdf().from(element).save(`Fluxo_Caixa_${activeProfile}.pdf`);
+        });
+
+        document.getElementById('exportChartPdfBtn').addEventListener('click', () => {
+            const element = document.getElementById('printAreaCharts');
+            html2pdf().from(element).save(`Graficos_${activeProfile}.pdf`);
+        });
+
+        document.getElementById('exportChartImgBtn').addEventListener('click', () => {
+            const canvas = document.getElementById('barChart');
+            const link = document.createElement('a');
+            link.download = `Graficos_${activeProfile}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        document.getElementById('sendEmailTableBtn').addEventListener('click', () => {
+            const subject = encodeURIComponent(`Relatório Financeiro - Perfil ${activeProfile}`);
+            const body = encodeURIComponent(`Olá,\n\nSegue o resumo do Fluxo de Caixa do perfil ${activeProfile}.\n\nSaldo do Período: ${currentBalance.textContent}\n\nAtenciosamente,\nMeu Melhor Dinheiro`);
+            window.location.href = `mailto:?subject=${subject}&body=${body}`;
+        });
+    </script>
+</body>
+</html>

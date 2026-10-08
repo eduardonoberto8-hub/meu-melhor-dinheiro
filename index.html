@@ -569,9 +569,9 @@
                     const div = document.createElement('div');
                     div.className = `flex flex-col sm:flex-row justify-between items-start sm:items-center p-2.5 bg-white border rounded-lg shadow-sm gap-2`;
                     
-                    // Regra: Se estiver vencida, não permite dar baixa direta aqui
+                    // Regra: Se for admin, permite dar baixa mesmo vencida. Se for operador, bloqueia se estiver vencida.
                     let actionHtml = '';
-                    if (isVencida) {
+                    if (isVencida && simulatedUserRole !== 'admin') {
                         actionHtml = `<span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">Vencida (Baixa Bloqueada)</span>`;
                     } else {
                         actionHtml = `<button onclick="quickMarkAsPaid('${t.id}')" class="bg-green-600 text-white text-xs px-2.5 py-1 rounded font-bold hover:bg-green-700">Dar Baixa (Pago)</button>`;
@@ -601,7 +601,7 @@
             const target = allTransactions.find(t => t.id === docId);
             const todayStr = new Date().toISOString().split('T')[0];
 
-            if (target && target.date < todayStr) {
+            if (target && target.date < todayStr && simulatedUserRole !== 'admin') {
                 alert("Operação bloqueada! Este lançamento já venceu e não pode ter seu status alterado diretamente para pago por aqui.");
                 return;
             }
@@ -805,12 +805,14 @@
                     const codigoAbreviado = idCompleto.substring(0, 6).toUpperCase();
                     const isVencida = t.status === 'pendente' && t.date && t.date < todayStr;
 
-                    // Formatação do status e verificação de vencimento
+                    // Formatação do status e permissão de alteração para Admin
                     let statusBadge = '';
                     if (t.status === 'pago') {
                         statusBadge = '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">Pago/Rec</span>';
-                    } else if (isVencida) {
-                        statusBadge = '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-bold border border-red-300" title="Conta Vencida: Mudança de status bloqueada">Vencida (Bloq.)</span>';
+                    } else if (isVencida && simulatedUserRole !== 'admin') {
+                        statusBadge = '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-bold border border-red-300" title="Conta Vencida: Apenas Admin pode alterar">Vencida (Bloq.)</span>';
+                    } else if (isVencida && simulatedUserRole === 'admin') {
+                        statusBadge = '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-bold border border-red-300 cursor-pointer hover:bg-red-200" title="Admin: Clique para dar baixa" onclick="quickMarkAsPaid(\'' + t.id + '\')">Vencida (Admin Lib.)</span>';
                     } else {
                         statusBadge = '<span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold">Pendente</span>';
                     }
@@ -981,7 +983,7 @@
                 const amt = parseFloat(t.amount) || 0;
                 if (t.type === 'entrada') {
                     totalEntradas += amt;
-                } else {
+                } else if (t.type === 'saida') {
                     totalSaidas += amt;
                     const cat = t.category || 'Sem Categoria';
                     categoryMap[cat] = (categoryMap[cat] || 0) + amt;
@@ -1006,7 +1008,12 @@
                         datalabels: {
                             color: '#fff',
                             font: { weight: 'bold' },
-                            formatter: (value) => 'R$ ' + value.toFixed(2)
+                            formatter: (value) => 'R$ ' + (value || 0).toFixed(2)
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
                         }
                     }
                 }
@@ -1032,7 +1039,7 @@
                         datalabels: {
                             color: '#fff',
                             font: { weight: 'bold' },
-                            formatter: (value) => 'R$ ' + value.exports?.toFixed ? value.toFixed(2) : 'R$ ' + value.toFixed(2)
+                            formatter: (value) => 'R$ ' + (value || 0).toFixed(2)
                         }
                     }
                 }

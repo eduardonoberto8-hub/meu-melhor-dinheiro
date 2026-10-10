@@ -44,7 +44,7 @@
     <!-- Tela Principal do App -->
     <div id="appScreen" class="max-w-6xl mx-auto space-y-6 hidden">
         
-        <!-- Topo: Logotipo + Usuário Logado + Botão Push + Sair -->
+        <!-- Topo: Logotipo + Usuário Logado + Botões Admin (Novo Usuário) + Push + Sair -->
         <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow gap-4">
             <div class="flex items-center gap-3">
                 <img src="https://lh3.googleusercontent.com/d/16n-0NG87zQUYCwDMKqTBBqGA5eppmtWo=s1000" alt="Logo" class="w-10 h-10 rounded-lg object-cover shadow">
@@ -54,7 +54,10 @@
                 </div>
             </div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
+                <!-- Botão exclusivo para o Admin cadastrar novos usuários de teste -->
+                <button id="openRegisterModalBtn" class="bg-purple-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold hover:bg-purple-700 transition hidden">➕ Cadastrar Novo Usuário</button>
+                
                 <button id="enablePushBtn" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition">🔔 Ativar Notificações Push</button>
                 <div id="roleSimulatorContainer" class="flex items-center gap-1 bg-gray-100 p-1 rounded border hidden">
                     <span class="text-xs text-gray-500 font-semibold pl-1">Ver como:</span>
@@ -105,7 +108,7 @@
             <div class="flex items-center justify-between border-b border-amber-200 pb-3">
                 <h2 class="text-lg font-bold text-amber-900 flex items-center gap-2">
                     <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    Aprovações Pendentes (Ajustes de Valor Solicitados por Funcionários)
+                    Aprovações Pendentes (Ajustes de Valor e Status Solicitados)
                 </h2>
                 <span id="pendingCountBadge" class="bg-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full">0 Pendentes</span>
             </div>
@@ -116,8 +119,8 @@
                             <th class="p-2">Data</th>
                             <th class="p-2">Descrição</th>
                             <th class="p-2">Solicitante</th>
-                            <th class="p-2 text-right">Valor Atual</th>
-                            <th class="p-2 text-right">Novo Valor Proposto</th>
+                            <th class="p-2">Tipo de Solicitação</th>
+                            <th class="p-2 text-right">Detalhe da Alteração</th>
                             <th class="p-2 text-center">Ações</th>
                         </tr>
                     </thead>
@@ -277,6 +280,30 @@
         </div>
     </div>
 
+    <!-- Modal de Cadastro de Novo Usuário (Exclusivo para Admin) -->
+    <div id="registerUserModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white rounded-xl shadow-lg max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-800">Cadastrar Novo Usuário</h3>
+                <button onclick="document.getElementById('registerUserModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+            </div>
+            <form id="adminRegisterForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">E-mail do Novo Usuário:</label>
+                    <input type="email" id="newRegEmail" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-purple-500 outline-none" placeholder="exemplo@email.com" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">Senha Provisória:</label>
+                    <input type="password" id="newRegPassword" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Mínimo 6 dígitos" required>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="document.getElementById('registerUserModal').classList.add('hidden')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded font-semibold text-sm hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded font-semibold text-sm hover:bg-purple-700">Criar Usuário</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal de Recibo -->
     <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-6 relative border-t-8 border-blue-600">
@@ -392,6 +419,10 @@
         const statusAlert = document.getElementById('statusAlert');
         const enablePushBtn = document.getElementById('enablePushBtn');
 
+        const openRegisterModalBtn = document.getElementById('openRegisterModalBtn');
+        const registerUserModal = document.getElementById('registerUserModal');
+        const adminRegisterForm = document.getElementById('adminRegisterForm');
+
         const dueDateAlertPanel = document.getElementById('dueDateAlertPanel');
         const dueDateAlertCount = document.getElementById('dueDateAlertCount');
         const dueDateAlertList = document.getElementById('dueDateAlertList');
@@ -405,6 +436,35 @@
         const searchIdBtn = document.getElementById('searchIdBtn');
         const receiptModal = document.getElementById('receiptModal');
         const receiptContent = document.getElementById('receiptContent');
+
+        // Abrir modal de cadastro pelo Admin
+        openRegisterModalBtn.addEventListener('click', () => {
+            document.getElementById('newRegEmail').value = '';
+            document.getElementById('newRegPassword').value = '';
+            registerUserModal.classList.remove('hidden');
+        });
+
+        // Executar o cadastro do novo usuário (Apenas Admin logado consegue)
+        adminRegisterForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            const newEmail = document.getElementById('newRegEmail').value;
+            const newPass = document.getElementById('newRegPassword').value;
+
+            try {
+                // Criação secundária sem derrubar a sessão atual do Admin
+                const secondaryApp = firebase.initializeApp(firebaseConfig, "Secondary");
+                const secondaryAuth = firebase.auth(secondaryApp);
+                
+                await secondaryAuth.createUserWithEmailAndPassword(newEmail, newPass);
+                await secondaryAuth.signOut();
+                await secondaryApp.delete();
+
+                alert(`Usuário ${newEmail} cadastrado com sucesso! Ele já pode fazer login no sistema.`);
+                registerUserModal.classList.add('hidden');
+            } catch (err) {
+                alert("Erro ao cadastrar usuário: " + err.message);
+            }
+        });
 
         function setDefaultCurrentMonthDates() {
             const now = new Date();
@@ -511,10 +571,12 @@
                 userRoleBadge.textContent = "Admin";
                 userRoleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-100 text-purple-800 inline-block mt-0.5";
                 adminApprovalPanel.classList.remove('hidden');
+                openRegisterModalBtn.classList.remove('hidden'); // Exibe o botão de cadastrar novo usuário para o Admin
             } else {
                 userRoleBadge.textContent = "Operador";
                 userRoleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-800 inline-block mt-0.5";
                 adminApprovalPanel.classList.add('hidden');
+                openRegisterModalBtn.classList.add('hidden'); // Esconde o botão se for operador
             }
         }
 
@@ -569,13 +631,7 @@
                     const div = document.createElement('div');
                     div.className = `flex flex-col sm:flex-row justify-between items-start sm:items-center p-2.5 bg-white border rounded-lg shadow-sm gap-2`;
                     
-                    // Regra: Se for admin, permite dar baixa mesmo vencida. Se for operador, bloqueia se estiver vencida.
-                    let actionHtml = '';
-                    if (isVencida && simulatedUserRole !== 'admin') {
-                        actionHtml = `<span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">Vencida (Baixa Bloqueada)</span>`;
-                    } else {
-                        actionHtml = `<button onclick="quickMarkAsPaid('${t.id}')" class="bg-green-600 text-white text-xs px-2.5 py-1 rounded font-bold hover:bg-green-700">Dar Baixa (Pago)</button>`;
-                    }
+                    const actionHtml = `<button onclick="toggleStatus('${t.id}', 'pago')" class="bg-green-600 text-white text-xs px-2.5 py-1 rounded font-bold hover:bg-green-700">Marcar como Pago</button>`;
 
                     div.innerHTML = `
                         <div class="flex items-center gap-2">
@@ -597,17 +653,31 @@
             }
         }
 
-        window.quickMarkAsPaid = async function(docId) {
+        window.toggleStatus = async function(docId, newStatus) {
             const target = allTransactions.find(t => t.id === docId);
-            const todayStr = new Date().toISOString().split('T')[0];
+            if (!target) return;
 
-            if (target && target.date < todayStr && simulatedUserRole !== 'admin') {
-                alert("Operação bloqueada! Este lançamento já venceu e não pode ter seu status alterado diretamente para pago por aqui.");
-                return;
-            }
+            const statusLabel = newStatus === 'pago' ? 'Pago/Recebido' : 'Pendente';
 
-            if (confirm("Deseja marcar este lançamento como Pago/Recebido?")) {
-                await db.collection("financas").doc(docId).update({ status: 'pago' });
+            if (simulatedUserRole === 'admin') {
+                if (confirm(`Deseja alterar o status deste lançamento para ${statusLabel}?`)) {
+                    await db.collection("financas").doc(docId).update({ status: newStatus });
+                    alert("Status atualizado com sucesso!");
+                }
+            } else {
+                if (confirm(`Como Operador, deseja solicitar a alteração de status para ${statusLabel} ao Administrador?`)) {
+                    await db.collection("financas").doc(activeProfile).collection("aprovacoes").add({
+                        type: 'status',
+                        targetDocId: docId,
+                        description: target.description,
+                        date: target.date,
+                        currentStatus: target.status,
+                        newStatus: newStatus,
+                        requestedBy: currentUser.email,
+                        requestedAt: new Date().toISOString()
+                    });
+                    alert("Solicitação de alteração de status enviada para aprovação do Administrador!");
+                }
             }
         };
 
@@ -688,7 +758,6 @@
             renderTransactions();
         });
 
-        // Função para Abrir o Recibo de um Lançamento por ID
         function openReceiptById(searchVal) {
             const query = searchVal.trim().toLowerCase();
             if (!query) {
@@ -805,16 +874,13 @@
                     const codigoAbreviado = idCompleto.substring(0, 6).toUpperCase();
                     const isVencida = t.status === 'pendente' && t.date && t.date < todayStr;
 
-                    // Formatação do status e permissão de alteração para Admin
                     let statusBadge = '';
                     if (t.status === 'pago') {
-                        statusBadge = '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">Pago/Rec</span>';
-                    } else if (isVencida && simulatedUserRole !== 'admin') {
-                        statusBadge = '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-bold border border-red-300" title="Conta Vencida: Apenas Admin pode alterar">Vencida (Bloq.)</span>';
-                    } else if (isVencida && simulatedUserRole === 'admin') {
-                        statusBadge = '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-bold border border-red-300 cursor-pointer hover:bg-red-200" title="Admin: Clique para dar baixa" onclick="quickMarkAsPaid(\'' + t.id + '\')">Vencida (Admin Lib.)</span>';
+                        statusBadge = `<span onclick="toggleStatus('${t.id}', 'pendente')" class="bg-green-100 text-green-800 text-xs px-2.5 py-1 rounded font-bold cursor-pointer hover:bg-green-200" title="Clique para alterar para Pendente">Pago/Rec (Mudar)</span>`;
+                    } else if (isVencida) {
+                        statusBadge = `<span onclick="toggleStatus('${t.id}', 'pago')" class="bg-red-100 text-red-800 text-xs px-2.5 py-1 rounded font-bold border border-red-300 cursor-pointer hover:bg-red-200" title="Conta Vencida: Clique para alterar para Pago">Vencida (Mudar)</span>`;
                     } else {
-                        statusBadge = '<span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold">Pendente</span>';
+                        statusBadge = `<span onclick="toggleStatus('${t.id}', 'pago')" class="bg-yellow-100 text-yellow-800 text-xs px-2.5 py-1 rounded font-bold cursor-pointer hover:bg-yellow-200" title="Clique para alterar para Pago">Pendente (Mudar)</span>`;
                     }
 
                     const tr = document.createElement('tr');
@@ -872,15 +938,25 @@
             pendingCountBadge.textContent = `${pendingApprovals.length} Pendentes`;
 
             pendingApprovals.forEach(app => {
+                const isStatusApp = app.type === 'status';
+                const tipoTexto = isStatusApp ? '<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-bold">Alteração de Status</span>' : '<span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs font-bold">Ajuste de Valor</span>';
+                
+                let detalheTexto = '';
+                if (isStatusApp) {
+                    detalheTexto = `De: <span class="uppercase font-semibold">${app.currentStatus}</span> ➔ Para: <span class="uppercase font-bold text-blue-600">${app.newStatus}</span>`;
+                } else {
+                    detalheTexto = `Atual: R$ ${(parseFloat(app.currentAmount)||0).toFixed(2)} ➔ Novo: R$ <span class="font-bold text-blue-600">${(parseFloat(app.newAmount)||0).toFixed(2)}</span>`;
+                }
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="p-2">${app.date}</td>
                     <td class="p-2 font-semibold">${app.description}</td>
                     <td class="p-2 text-xs">${app.requestedBy}</td>
-                    <td class="p-2 text-right font-bold text-gray-500">R$ ${(parseFloat(app.currentAmount)||0).toFixed(2)}</td>
-                    <td class="p-2 text-right font-bold text-blue-600">R$ ${(parseFloat(app.newAmount)||0).toFixed(2)}</td>
+                    <td class="p-2">${tipoTexto}</td>
+                    <td class="p-2 text-right">${detalheTexto}</td>
                     <td class="p-2 text-center flex justify-center gap-1">
-                        <button onclick="approveAdjustment('${app.id}', '${app.targetDocId}', ${app.newAmount})" class="bg-green-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-green-700">Aprovar</button>
+                        <button onclick="approveAdjustment('${app.id}', '${app.targetDocId}', ${JSON.stringify(app).replace(/"/g, '&quot;')})" class="bg-green-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-green-700">Aprovar</button>
                         <button onclick="rejectAdjustment('${app.id}')" class="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-red-700">Rejeitar</button>
                     </td>
                 `;
@@ -921,6 +997,7 @@
                 alert("Valor atualizado com sucesso!");
             } else {
                 await db.collection("financas").doc(activeProfile).collection("aprovacoes").add({
+                    type: 'amount',
                     targetDocId: currentEditDocId,
                     description: target.description,
                     date: target.date,
@@ -935,10 +1012,14 @@
             editAmountModal.classList.add('hidden');
         });
 
-        window.approveAdjustment = async function(approvalDocId, targetDocId, newAmount) {
-            await db.collection("financas").doc(targetDocId).update({ amount: newAmount });
+        window.approveAdjustment = async function(approvalDocId, targetDocId, appData) {
+            if (appData.type === 'status') {
+                await db.collection("financas").doc(targetDocId).update({ status: appData.newStatus });
+            } else {
+                await db.collection("financas").doc(targetDocId).update({ amount: appData.newAmount });
+            }
             await db.collection("financas").doc(activeProfile).collection("aprovacoes").doc(approvalDocId).delete();
-            alert("Ajuste APROVADO e atualizado!");
+            alert("Ajuste APROVADO e aplicado com sucesso!");
         };
 
         window.rejectAdjustment = async function(approvalDocId) {

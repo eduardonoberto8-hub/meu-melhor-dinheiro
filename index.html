@@ -301,7 +301,7 @@
         </div>
     </div>
 
-    <!-- Modal de Recibo (Sem imagens externas para garantir 100% de sucesso no PDF) -->
+    <!-- Modal de Recibo -->
     <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
         <div id="printAreaReceipt" class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-6 relative border-t-8 border-blue-600">
             <div class="flex justify-between items-center border-b pb-3">
@@ -641,6 +641,7 @@
             }
         };
 
+        // Correção do Evento de Submissão do Formulário de Lançamento
         financeForm.addEventListener('submit', async e => {
             e.preventDefault();
             const type = document.getElementById('type').value;
@@ -682,6 +683,7 @@
 
             financeForm.reset();
             document.getElementById('installments').value = 1;
+            alert("Lançamento(s) salvo(s) com sucesso!");
         });
 
         const colFilterId = document.getElementById('colFilterId');
@@ -792,7 +794,6 @@
             }
         });
 
-        // Impressão/PDF do Recibo corrigida (sem imagens externas demoradas)
         document.getElementById('printReceiptBtn').addEventListener('click', () => {
             const element = document.getElementById('printAreaReceipt');
             const options = {
@@ -1114,7 +1115,6 @@
             XLSX.writeFile(wb, `Fluxo_Caixa_${activeProfile}.xlsx`);
         });
 
-        // Relatório de Fluxo de Caixa em PDF (Paisagem)
         document.getElementById('exportPdfTableBtn').addEventListener('click', () => {
             const element = document.getElementById('printAreaTable');
             const options = {

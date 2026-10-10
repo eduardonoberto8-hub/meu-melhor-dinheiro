@@ -178,7 +178,7 @@
 
                     <div class="flex items-center gap-1 border-l pl-2">
                         <button id="exportExcelBtn" title="Exportar para Excel" class="bg-emerald-600 text-white text-xs px-2 py-1 rounded font-semibold hover:bg-emerald-700">Excel</button>
-                        <button id="exportPdfTableBtn" title="Exportar Tabela para PDF" class="bg-red-600 text-white text-xs px-2 py-1 rounded font-semibold hover:bg-red-700">PDF</button>
+                        <button id="exportPdfTableBtn" title="Exportar Tabela para PDF" class="bg-red-600 text-white text-xs px-2 py-1 rounded font-semibold hover:bg-red-700">PDF (Paisagem)</button>
                         <button id="sendEmailTableBtn" title="Enviar por E-mail" class="bg-indigo-600 text-white text-xs px-2 py-1 rounded font-semibold hover:bg-indigo-700">E-mail</button>
                     </div>
                 </div>
@@ -301,22 +301,22 @@
         </div>
     </div>
 
-    <!-- Modal de Recibo -->
+    <!-- Modal de Recibo (Com ID dedicado para impressão correta) -->
     <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-6 relative border-t-8 border-blue-600">
+        <div id="printAreaReceipt" class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-6 relative border-t-8 border-blue-600">
             <div class="flex justify-between items-center border-b pb-3">
                 <div class="flex items-center gap-2">
                     <img src="https://lh3.googleusercontent.com/d/16n-0NG87zQUYCwDMKqTBBqGA5eppmtWo=s1000" class="w-8 h-8 rounded object-cover">
                     <h3 class="text-lg font-bold text-gray-800">Comprovante / Recibo de Lançamento</h3>
                 </div>
-                <button onclick="document.getElementById('receiptModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+                <button onclick="document.getElementById('receiptModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 font-bold text-lg print:hidden">✕</button>
             </div>
 
             <div id="receiptContent" class="space-y-4 text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border">
                 <!-- Conteúdo preenchido via JS -->
             </div>
 
-            <div class="flex justify-end gap-3 pt-2">
+            <div class="flex justify-end gap-3 pt-2 print:hidden">
                 <button onclick="document.getElementById('receiptModal').classList.add('hidden')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-300">Fechar</button>
                 <button id="printReceiptBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700">Baixar / Imprimir PDF</button>
             </div>
@@ -792,8 +792,17 @@
             }
         });
 
+        // Correção do Recibo para salvar em PDF corretamente com conteúdo visível
         document.getElementById('printReceiptBtn').addEventListener('click', () => {
-            html2pdf().from(receiptContent).save(`Comprovante_${searchIdInput.value || 'lancamento'}.pdf`);
+            const element = document.getElementById('printAreaReceipt');
+            const options = {
+                margin:       10,
+                filename:     `Comprovante_${searchIdInput.value || 'lancamento'}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().from(element).set(options).save();
         });
 
         function renderTransactions() {
@@ -1105,9 +1114,17 @@
             XLSX.writeFile(wb, `Fluxo_Caixa_${activeProfile}.xlsx`);
         });
 
+        // Relatório de Fluxo de Caixa em PDF ajustado para Paisagem (Landscape)
         document.getElementById('exportPdfTableBtn').addEventListener('click', () => {
             const element = document.getElementById('printAreaTable');
-            html2pdf().from(element).save(`Fluxo_Caixa_${activeProfile}.pdf`);
+            const options = {
+                margin:       10,
+                filename:     `Fluxo_Caixa_${activeProfile}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+            html2pdf().from(element).set(options).save();
         });
 
         document.getElementById('exportChartPdfBtn').addEventListener('click', () => {

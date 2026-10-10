@@ -21,7 +21,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
 </head>
 <body class="bg-gray-100 font-sans p-4 md:p-8">
 
@@ -44,7 +43,7 @@
     <!-- Tela Principal do App -->
     <div id="appScreen" class="max-w-6xl mx-auto space-y-6 hidden">
         
-        <!-- Topo: Logotipo + Usuário Logado + Botões Admin (Novo Usuário) + Push + Sair -->
+        <!-- Topo: Logotipo + Usuário Logado + Botões Admin + Sair -->
         <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow gap-4">
             <div class="flex items-center gap-3">
                 <img src="https://lh3.googleusercontent.com/d/16n-0NG87zQUYCwDMKqTBBqGA5eppmtWo=s1000" alt="Logo" class="w-10 h-10 rounded-lg object-cover shadow">
@@ -55,10 +54,8 @@
             </div>
 
             <div class="flex items-center gap-3 flex-wrap">
-                <!-- Botão exclusivo para o Admin cadastrar novos usuários de teste -->
                 <button id="openRegisterModalBtn" class="bg-purple-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold hover:bg-purple-700 transition hidden">➕ Cadastrar Novo Usuário</button>
                 
-                <button id="enablePushBtn" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition">🔔 Ativar Notificações Push</button>
                 <div id="roleSimulatorContainer" class="flex items-center gap-1 bg-gray-100 p-1 rounded border hidden">
                     <span class="text-xs text-gray-500 font-semibold pl-1">Ver como:</span>
                     <select id="roleSimulatorSelect" class="text-xs border-0 bg-transparent font-bold text-gray-700 focus:ring-0 cursor-pointer">
@@ -373,7 +370,6 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-        const messaging = firebase.messaging();
 
         // Perfis e Papéis
         const USER_ROLES = {
@@ -417,7 +413,6 @@
         const pendingApprovalList = document.getElementById('pendingApprovalList');
         const pendingCountBadge = document.getElementById('pendingCountBadge');
         const statusAlert = document.getElementById('statusAlert');
-        const enablePushBtn = document.getElementById('enablePushBtn');
 
         const openRegisterModalBtn = document.getElementById('openRegisterModalBtn');
         const registerUserModal = document.getElementById('registerUserModal');
@@ -451,7 +446,6 @@
             const newPass = document.getElementById('newRegPassword').value;
 
             try {
-                // Criação secundária sem derrubar a sessão atual do Admin
                 const secondaryApp = firebase.initializeApp(firebaseConfig, "Secondary");
                 const secondaryAuth = firebase.auth(secondaryApp);
                 
@@ -525,40 +519,6 @@
 
         logoutBtn.addEventListener('click', () => auth.signOut());
 
-        enablePushBtn.addEventListener('click', async () => {
-            try {
-                const permission = await Notification.requestPermission();
-                if (permission === 'granted') {
-                    const registration = await navigator.serviceWorker.register('firebase-messaging-sw.js');
-                    
-                    const token = await messaging.getToken({
-                        vapidKey: 'BHeRvwajRTEL-mufhB6q6M3YXfhTan0KauPUxWTNI6ISNiwF5tA-sdDYNT2kEPxIQcPzZRdjKLm763GaXxh_-y4',
-                        serviceWorkerRegistration: registration
-                    });
-
-                    if (token) {
-                        await db.collection("fcm_tokens").doc(currentUser.uid).set({
-                            token: token,
-                            email: currentUser.email,
-                            updatedAt: new Date().toISOString()
-                        }, { merge: true });
-
-                        alert("Notificações Push ativadas com sucesso neste dispositivo!");
-                        enablePushBtn.textContent = "🔔 Push Ativado";
-                        enablePushBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
-                        enablePushBtn.classList.add('bg-green-600');
-                    } else {
-                        alert("Não foi possível gerar o token de notificação.");
-                    }
-                } else {
-                    alert("Permissão de notificação negada pelo navegador.");
-                }
-            } catch (err) {
-                console.error("Erro ao ativar push:", err);
-                alert("Erro ao registrar notificações: " + err.message);
-            }
-        });
-
         roleSimulatorSelect.addEventListener('change', e => {
             simulatedUserRole = e.target.value;
             updateRoleUI();
@@ -571,12 +531,12 @@
                 userRoleBadge.textContent = "Admin";
                 userRoleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-100 text-purple-800 inline-block mt-0.5";
                 adminApprovalPanel.classList.remove('hidden');
-                openRegisterModalBtn.classList.remove('hidden'); // Exibe o botão de cadastrar novo usuário para o Admin
+                openRegisterModalBtn.classList.remove('hidden');
             } else {
                 userRoleBadge.textContent = "Operador";
                 userRoleBadge.className = "px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-800 inline-block mt-0.5";
                 adminApprovalPanel.classList.add('hidden');
-                openRegisterModalBtn.classList.add('hidden'); // Esconde o botão se for operador
+                openRegisterModalBtn.classList.add('hidden');
             }
         }
 

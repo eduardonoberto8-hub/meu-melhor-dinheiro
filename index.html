@@ -105,7 +105,7 @@
             <div class="flex items-center justify-between border-b border-amber-200 pb-3">
                 <h2 class="text-lg font-bold text-amber-900 flex items-center gap-2">
                     <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    Aprovações Pendentes (Ajustes de Valor e Status Solicitados)
+                    Aprovações Pendentes (Ajustes de Valor Solicitados por Funcionários)
                 </h2>
                 <span id="pendingCountBadge" class="bg-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full">0 Pendentes</span>
             </div>
@@ -116,8 +116,8 @@
                             <th class="p-2">Data</th>
                             <th class="p-2">Descrição</th>
                             <th class="p-2">Solicitante</th>
-                            <th class="p-2">Tipo de Solicitação</th>
-                            <th class="p-2 text-right">Detalhe da Alteração</th>
+                            <th class="p-2 text-right">Valor Atual</th>
+                            <th class="p-2 text-right">Novo Valor Proposto</th>
                             <th class="p-2 text-center">Ações</th>
                         </tr>
                     </thead>
@@ -569,7 +569,13 @@
                     const div = document.createElement('div');
                     div.className = `flex flex-col sm:flex-row justify-between items-start sm:items-center p-2.5 bg-white border rounded-lg shadow-sm gap-2`;
                     
-                    const actionHtml = `<button onclick="toggleStatus('${t.id}', 'pago')" class="bg-green-600 text-white text-xs px-2.5 py-1 rounded font-bold hover:bg-green-700">Marcar como Pago</button>`;
+                    // Regra: Se for admin, permite dar baixa mesmo vencida. Se for operador, bloqueia se estiver vencida.
+                    let actionHtml = '';
+                    if (isVencida && simulatedUserRole !== 'admin') {
+                        actionHtml = `<span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">Vencida (Baixa Bloqueada)</span>`;
+                    } else {
+                        actionHtml = `<button onclick="quickMarkAsPaid('${t.id}')" class="bg-green-600 text-white text-xs px-2.5 py-1 rounded font-bold hover:bg-green-700">Dar Baixa (Pago)</button>`;
+                    }
 
                     div.innerHTML = `
                         <div class="flex items-center gap-2">
@@ -591,33 +597,17 @@
             }
         }
 
-        // Função unificada para alternar status (Pago <-> Pendente) com regras de Admin/Operador
-        window.toggleStatus = async function(docId, newStatus) {
+        window.quickMarkAsPaid = async function(docId) {
             const target = allTransactions.find(t => t.id === docId);
-            if (!target) return;
+            const todayStr = new Date().toISOString().split('T')[0];
 
-            const statusLabel = newStatus === 'pago' ? 'Pago/Recebido' : 'Pendente';
+            if (target && target.date < todayStr && simulatedUserRole !== 'admin') {
+                alert("Operação bloqueada! Este lançamento já venceu e não pode ter seu status alterado diretamente para pago por aqui.");
+                return;
+            }
 
-            if (simulatedUserRole === 'admin') {
-                if (confirm(`Deseja alterar o status deste lançamento para ${statusLabel}?`)) {
-                    await db.collection("financas").doc(docId).update({ status: newStatus });
-                    alert("Status atualizado com sucesso!");
-                }
-            } else {
-                // Operador solicita alteração de status para aprovação
-                if (confirm(`Como Operador, deseja solicitar a alteração de status para ${statusLabel} ao Administrador?`)) {
-                    await db.collection("financas").doc(activeProfile).collection("aprovacoes").add({
-                        type: 'status',
-                        targetDocId: docId,
-                        description: target.description,
-                        date: target.date,
-                        currentStatus: target.status,
-                        newStatus: newStatus,
-                        requestedBy: currentUser.email,
-                        requestedAt: new Date().toISOString()
-                    });
-                    alert("Solicitação de alteração de status enviada para aprovação do Administrador!");
-                }
+            if (confirm("Deseja marcar este lançamento como Pago/Recebido?")) {
+                await db.collection("financas").doc(docId).update({ status: 'pago' });
             }
         };
 
@@ -815,14 +805,16 @@
                     const codigoAbreviado = idCompleto.substring(0, 6).toUpperCase();
                     const isVencida = t.status === 'pendente' && t.date && t.date < todayStr;
 
-                    // Botão interativo de status: Permite alternar para Pago se estiver pendente, ou para Pendente se estiver pago
+                    // Formatação do status e permissão de alteração para Admin
                     let statusBadge = '';
                     if (t.status === 'pago') {
-                        statusBadge = `<span onclick="toggleStatus('${t.id}', 'pendente')" class="bg-green-100 text-green-800 text-xs px-2.5 py-1 rounded font-bold cursor-pointer hover:bg-green-200" title="Clique para alterar para Pendente">Pago/Rec (Mudar)</span>`;
-                    } else if (isVencida) {
-                        statusBadge = `<span onclick="toggleStatus('${t.id}', 'pago')" class="bg-red-100 text-red-800 text-xs px-2.5 py-1 rounded font-bold border border-red-300 cursor-pointer hover:bg-red-200" title="Conta Vencida: Clique para alterar para Pago">Vencida (Mudar)</span>`;
+                        statusBadge = '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">Pago/Rec</span>';
+                    } else if (isVencida && simulatedUserRole !== 'admin') {
+                        statusBadge = '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-bold border border-red-300" title="Conta Vencida: Apenas Admin pode alterar">Vencida (Bloq.)</span>';
+                    } else if (isVencida && simulatedUserRole === 'admin') {
+                        statusBadge = '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-bold border border-red-300 cursor-pointer hover:bg-red-200" title="Admin: Clique para dar baixa" onclick="quickMarkAsPaid(\'' + t.id + '\')">Vencida (Admin Lib.)</span>';
                     } else {
-                        statusBadge = `<span onclick="toggleStatus('${t.id}', 'pago')" class="bg-yellow-100 text-yellow-800 text-xs px-2.5 py-1 rounded font-bold cursor-pointer hover:bg-yellow-200" title="Clique para alterar para Pago">Pendente (Mudar)</span>`;
+                        statusBadge = '<span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold">Pendente</span>';
                     }
 
                     const tr = document.createElement('tr');
@@ -880,25 +872,15 @@
             pendingCountBadge.textContent = `${pendingApprovals.length} Pendentes`;
 
             pendingApprovals.forEach(app => {
-                const isStatusApp = app.type === 'status';
-                const tipoTexto = isStatusApp ? '<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-bold">Alteração de Status</span>' : '<span class="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs font-bold">Ajuste de Valor</span>';
-                
-                let detalheTexto = '';
-                if (isStatusApp) {
-                    detalheTexto = `De: <span class="uppercase font-semibold">${app.currentStatus}</span> ➔ Para: <span class="uppercase font-bold text-blue-600">${app.newStatus}</span>`;
-                } else {
-                    detalheTexto = `Atual: R$ ${(parseFloat(app.currentAmount)||0).toFixed(2)} ➔ Novo: R$ <span class="font-bold text-blue-600">${(parseFloat(app.newAmount)||0).toFixed(2)}</span>`;
-                }
-
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="p-2">${app.date}</td>
                     <td class="p-2 font-semibold">${app.description}</td>
                     <td class="p-2 text-xs">${app.requestedBy}</td>
-                    <td class="p-2">${tipoTexto}</td>
-                    <td class="p-2 text-right">${detalheTexto}</td>
+                    <td class="p-2 text-right font-bold text-gray-500">R$ ${(parseFloat(app.currentAmount)||0).toFixed(2)}</td>
+                    <td class="p-2 text-right font-bold text-blue-600">R$ ${(parseFloat(app.newAmount)||0).toFixed(2)}</td>
                     <td class="p-2 text-center flex justify-center gap-1">
-                        <button onclick="approveAdjustment('${app.id}', '${app.targetDocId}', ${JSON.stringify(app).replace(/"/g, '&quot;')})" class="bg-green-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-green-700">Aprovar</button>
+                        <button onclick="approveAdjustment('${app.id}', '${app.targetDocId}', ${app.newAmount})" class="bg-green-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-green-700">Aprovar</button>
                         <button onclick="rejectAdjustment('${app.id}')" class="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold hover:bg-red-700">Rejeitar</button>
                     </td>
                 `;
@@ -939,7 +921,6 @@
                 alert("Valor atualizado com sucesso!");
             } else {
                 await db.collection("financas").doc(activeProfile).collection("aprovacoes").add({
-                    type: 'amount',
                     targetDocId: currentEditDocId,
                     description: target.description,
                     date: target.date,
@@ -954,14 +935,10 @@
             editAmountModal.classList.add('hidden');
         });
 
-        window.approveAdjustment = async function(approvalDocId, targetDocId, appData) {
-            if (appData.type === 'status') {
-                await db.collection("financas").doc(targetDocId).update({ status: appData.newStatus });
-            } else {
-                await db.collection("financas").doc(targetDocId).update({ amount: appData.newAmount });
-            }
+        window.approveAdjustment = async function(approvalDocId, targetDocId, newAmount) {
+            await db.collection("financas").doc(targetDocId).update({ amount: newAmount });
             await db.collection("financas").doc(activeProfile).collection("aprovacoes").doc(approvalDocId).delete();
-            alert("Ajuste APROVADO e aplicado com sucesso!");
+            alert("Ajuste APROVADO e atualizado!");
         };
 
         window.rejectAdjustment = async function(approvalDocId) {

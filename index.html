@@ -301,13 +301,13 @@
         </div>
     </div>
 
-    <!-- Modal de Recibo (Com ID dedicado para impressão correta) -->
+    <!-- Modal de Recibo (Sem imagens externas para garantir 100% de sucesso no PDF) -->
     <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
         <div id="printAreaReceipt" class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-6 relative border-t-8 border-blue-600">
             <div class="flex justify-between items-center border-b pb-3">
                 <div class="flex items-center gap-2">
-                    <img src="https://lh3.googleusercontent.com/d/16n-0NG87zQUYCwDMKqTBBqGA5eppmtWo=s1000" class="w-8 h-8 rounded object-cover">
-                    <h3 class="text-lg font-bold text-gray-800">Comprovante / Recibo de Lançamento</h3>
+                    <div class="w-8 h-8 rounded bg-blue-600 text-white flex items-center justify-center font-bold text-sm">MMD</div>
+                    <h3 class="text-lg font-bold text-gray-800">Comprovante / Recibo</h3>
                 </div>
                 <button onclick="document.getElementById('receiptModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 font-bold text-lg print:hidden">✕</button>
             </div>
@@ -792,14 +792,14 @@
             }
         });
 
-        // Correção do Recibo para salvar em PDF corretamente com conteúdo visível
+        // Impressão/PDF do Recibo corrigida (sem imagens externas demoradas)
         document.getElementById('printReceiptBtn').addEventListener('click', () => {
             const element = document.getElementById('printAreaReceipt');
             const options = {
                 margin:       10,
                 filename:     `Comprovante_${searchIdInput.value || 'lancamento'}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
             html2pdf().from(element).set(options).save();
@@ -1114,7 +1114,7 @@
             XLSX.writeFile(wb, `Fluxo_Caixa_${activeProfile}.xlsx`);
         });
 
-        // Relatório de Fluxo de Caixa em PDF ajustado para Paisagem (Landscape)
+        // Relatório de Fluxo de Caixa em PDF (Paisagem)
         document.getElementById('exportPdfTableBtn').addEventListener('click', () => {
             const element = document.getElementById('printAreaTable');
             const options = {

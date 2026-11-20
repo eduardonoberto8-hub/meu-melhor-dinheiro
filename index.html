@@ -1157,19 +1157,33 @@
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-3">
                     <div>
                         <h2 class="text-xl font-bold text-gray-800">Coach Financeiro (IA)</h2>
-                        <p class="text-xs text-gray-500">Análise comportamental baseada no perfil e período ativos</p>
+                        <p class="text-xs text-gray-500">Análise comportamental e perguntas baseadas no perfil e período ativos</p>
                     </div>
                     <button id="generateCoachAdviceBtn" type="button" class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg font-bold hover:bg-indigo-700">
                         Gerar Dicas de Comportamento
                     </button>
                 </div>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input
+                        id="coachQuestionInput"
+                        type="text"
+                        maxlength="300"
+                        placeholder="Faça uma pergunta sobre suas finanças (ex.: Onde posso economizar neste período?)"
+                        class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button id="askCoachQuestionBtn" type="button" class="bg-gray-800 text-white text-sm px-4 py-2 rounded-lg font-bold hover:bg-gray-900">
+                        Perguntar à IA
+                    </button>
+                </div>
                 <div id="coachAdviceOutput" class="text-sm text-gray-700 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 whitespace-pre-line">
-                    Clique em "Gerar Dicas de Comportamento" para receber orientações práticas com base nos seus lançamentos atuais.
+                    Clique em "Gerar Dicas de Comportamento" para uma análise geral ou digite uma dúvida e clique em "Perguntar à IA".
                 </div>
             `;
             appScreen.appendChild(coachPanel);
 
             const generateBtn = document.getElementById('generateCoachAdviceBtn');
+            const askBtn = document.getElementById('askCoachQuestionBtn');
+            const questionInput = document.getElementById('coachQuestionInput');
             const outputBox = document.getElementById('coachAdviceOutput');
 
             function buildFinancialSummary() {
@@ -1225,16 +1239,29 @@
                 };
             }
 
-            generateBtn.addEventListener('click', async () => {
-                outputBox.textContent = "Analisando seus dados financeiros e preparando recomendações...";
+            async function callCoach(customQuestion = '') {
+                const trimmed = customQuestion.trim();
+                if (askBtn && !trimmed && customQuestion !== '') {
+                    outputBox.textContent = "Digite uma pergunta antes de clicar em \"Perguntar à IA\".";
+                    return;
+                }
+
+                outputBox.textContent = trimmed
+                    ? "A analisar a sua pergunta com base nos dados do período..."
+                    : "A analisar os seus dados financeiros e a preparar recomendações...";
+
                 generateBtn.disabled = true;
+                askBtn.disabled = true;
 
                 try {
                     const summary = buildFinancialSummary();
                     const res = await fetch('/api/coach', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ summary })
+                        body: JSON.stringify({
+                            summary,
+                            question: trimmed || undefined
+                        })
                     });
 
                     const data = await res.json();
@@ -1244,9 +1271,19 @@
 
                     outputBox.textContent = data.advice;
                 } catch (err) {
-                    outputBox.textContent = "Não foi possível gerar as dicas agora: " + err.message;
+                    outputBox.textContent = "Não foi possível consultar a IA agora: " + err.message;
                 } finally {
                     generateBtn.disabled = false;
+                    askBtn.disabled = false;
+                }
+            }
+
+            generateBtn.addEventListener('click', () => callCoach(''));
+            askBtn.addEventListener('click', () => callCoach(questionInput.value));
+            questionInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    callCoach(questionInput.value);
                 }
             });
         })();

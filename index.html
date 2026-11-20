@@ -1143,8 +1143,114 @@
         document.getElementById('sendEmailTableBtn').addEventListener('click', () => {
             const subject = encodeURIComponent(`Relatório Financeiro - Perfil ${activeProfile}`);
             const body = encodeURIComponent(`Olá,\n\nSegue o resumo do Fluxo de Caixa do perfil ${activeProfile}.\n\nSaldo do Período: ${currentBalance.textContent}\n\nAtenciosamente,\nMeu Melhor Dinheiro`);
-            window.location.href = `mailto:?subject=${subject}&body=${body}`;
+           window.location.href = `mailto:?subject=${subject}&body=${body}`;
         });
+
+        // === INÍCIO DO COACH FINANCEIRO (IA) ===
+        (function initCoachFinanceiro() {
+            const appScreen = document.getElementById('appScreen');
+            if (!appScreen) return;
+
+            const coachPanel = document.createElement('div');
+            coachPanel.className = 'bg-white p-6 rounded-xl shadow space-y-4 border-l-4 border-indigo-600';
+            coachPanel.innerHTML = `
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b pb-3">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800">Coach Financeiro (IA)</h2>
+                        <p class="text-xs text-gray-500">Análise comportamental baseada no perfil e período ativos</p>
+                    </div>
+                    <button id="generateCoachAdviceBtn" type="button" class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg font-bold hover:bg-indigo-700">
+                        Gerar Dicas de Comportamento
+                    </button>
+                </div>
+                <div id="coachAdviceOutput" class="text-sm text-gray-700 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 whitespace-pre-line">
+                    Clique em "Gerar Dicas de Comportamento" para receber orientações práticas com base nos seus lançamentos atuais.
+                </div>
+            `;
+            appScreen.appendChild(coachPanel);
+
+            const generateBtn = document.getElementById('generateCoachAdviceBtn');
+            const outputBox = document.getElementById('coachAdviceOutput');
+
+            function buildFinancialSummary() {
+                const start = (typeof startDate !== 'undefined' && startDate?.value) || (typeof tableStartDate !== 'undefined' && tableStartDate?.value) || '';
+                const end = (typeof endDate !== 'undefined' && endDate?.value) || (typeof tableEndDate !== 'undefined' && tableEndDate?.value) || '';
+                const todayStr = new Date().toISOString().split('T')[0];
+
+                const transactionsList = typeof allTransactions !== 'undefined' && Array.isArray(allTransactions) ? allTransactions : [];
+                const scoped = transactionsList.filter(t => {
+                    const matchStart = !start || t.date >= start;
+                    const matchEnd = !end || t.date <= end;
+                    return matchStart && matchEnd;
+                });
+
+                let entradas = 0;
+                let saidas = 0;
+                let pendentesCount = 0;
+                let pendentesValor = 0;
+                let vencidasCount = 0;
+                const gastosPorCategoria = {};
+
+                scoped.forEach(t => {
+                    const valor = parseFloat(t.amount) || 0;
+                    if (t.type === 'entrada') {
+                        entradas += valor;
+                    } else if (t.type === 'saida') {
+                        saidas += valor;
+                        const cat = (t.category || 'Sem Categoria').trim();
+                        gastosPorCategoria[cat] = (gastosPorCategoria[cat] || 0) + valor;
+                    }
+
+                    if (t.status === 'pendente') {
+                        pendentesCount += 1;
+                        pendentesValor += valor;
+                        if (t.date && t.date < todayStr) {
+                            vencidasCount += 1;
+                        }
+                    }
+                });
+
+                return {
+                    perfil: typeof activeProfile !== 'undefined' ? activeProfile : 'padrao',
+                    periodo: { inicio: start || 'todos', fim: end || 'todos' },
+                    entradas: Number(entradas.toFixed(2)),
+                    saidas: Number(saidas.toFixed(2)),
+                    saldo: Number((entradas - saidas).toFixed(2)),
+                    gastosPorCategoria,
+                    contasPendentes: {
+                        quantidade: pendentesCount,
+                        valorTotal: Number(pendentesValor.toFixed(2)),
+                        vencidas: vencidasCount
+                    }
+                };
+            }
+
+            generateBtn.addEventListener('click', async () => {
+                outputBox.textContent = "Analisando seus dados financeiros e preparando recomendações...";
+                generateBtn.disabled = true;
+
+                try {
+                    const summary = buildFinancialSummary();
+                    const res = await fetch('/api/coach', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ summary })
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok) {
+                        throw new Error(data.error || "Falha ao obter resposta da IA.");
+                    }
+
+                    outputBox.textContent = data.advice;
+                } catch (err) {
+                    outputBox.textContent = "Não foi possível gerar as dicas agora: " + err.message;
+                } finally {
+                    generateBtn.disabled = false;
+                }
+            });
+        })();
+        // === FIM DO COACH FINANCEIRO (IA) ===
     </script>
 </body>
 </html>

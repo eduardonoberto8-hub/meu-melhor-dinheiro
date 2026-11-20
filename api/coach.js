@@ -9,12 +9,28 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { summary } = req.body || {};
+    const { summary, question } = req.body || {};
     if (!summary) {
       return res.status(400).json({ error: "Resumo financeiro não enviado." });
     }
 
-    const prompt = `
+    const cleanQuestion = typeof question === "string" ? question.trim() : "";
+
+    const prompt = cleanQuestion
+      ? `
+Você é um consultor de educação financeira e comportamento econômico prático, objetivo e empático.
+Responda à pergunta do usuário usando APENAS os dados financeiros fornecidos abaixo como contexto, com foco educativo e prático (não é aconselhamento financeiro formal/regulamentado).
+Se a pergunta não tiver relação com finanças, orçamento ou comportamento financeiro, redirecione gentilmente para esse tema.
+
+Pergunta do usuário:
+"${cleanQuestion}"
+
+Dados financeiros do usuário:
+${JSON.stringify(summary, null, 2)}
+
+Responda em português, de forma clara, direta e útil.
+      `.trim()
+      : `
 Você é um consultor de educação financeira e comportamento econômico prático, objetivo e empático.
 Analise o resumo abaixo e entregue:
 1. Um diagnóstico rápido do comportamento financeiro atual (sem julgamentos).
@@ -25,7 +41,7 @@ Responda em português, com linguagem clara, direta e bem estruturada.
 
 Dados do usuário:
 ${JSON.stringify(summary, null, 2)}
-    `.trim();
+      `.trim();
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
@@ -50,7 +66,7 @@ ${JSON.stringify(summary, null, 2)}
       data?.candidates?.[0]?.content?.parts
         ?.map((part) => part.text)
         .filter(Boolean)
-        .join("\n") || "Não foi possível gerar uma recomendação no momento.";
+        .join("\n") || "Não foi possível gerar uma resposta no momento.";
 
     return res.status(200).json({ advice });
   } catch (err) {
